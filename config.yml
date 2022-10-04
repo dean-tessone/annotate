@@ -1,0 +1,26 @@
+data_key: features
+image_key: images
+labels:
+- active: true
+  color: black
+  name: class 0
+- active: true
+  color: red
+  name: class 1
+- active: false
+  color: yellow
+  name: class 2
+- active: false
+  color: green
+  name: class 3
+- active: false
+  color: cyan
+  name: class 4
+- active: false
+  color: magenta
+  name: class 5
+n_collage: 225
+output_dir: /home/amin/Dropbox/Education/PhD/coding/Python/annotateEZ/output
+tile_size: 45
+x_size: 15
+y_size: 15
