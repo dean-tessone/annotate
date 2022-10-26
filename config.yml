@@ -1,3 +1,4 @@
+active_id: 1
 data_key: features
 image_key: images
 labels:
@@ -21,6 +22,6 @@ labels:
   name: class 5
 n_collage: 225
 output_dir: /home/amin/Dropbox/Education/PhD/coding/Python/annotateEZ/output
-tile_size: 45
+tile_size: 31
 x_size: 15
 y_size: 15

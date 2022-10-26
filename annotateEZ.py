@@ -7,26 +7,41 @@ import sys
 import os
 import h5py
 import yaml
+import logging
+
 
 # Input
-config = {}
 images = []
 df = pd.DataFrame()
 
-# Functions
+# Logger setup
+logger = logging.getLogger(__name__)
+c_handler = logging.StreamHandler()
+console_format = logging.Formatter("[%(levelname)s] %(message)s")
+c_handler.setFormatter(console_format)
+c_handler.setLevel(logging.INFO)
+logging.getLogger().addHandler(c_handler)
+f_handler = logging.FileHandler(filename="./main.log", mode='w')
+f_format = logging.Formatter("%(asctime)s: [%(levelname)s] %(message)s")
+f_handler.setFormatter(f_format)
+f_handler.setLevel(logging.DEBUG)
+logging.getLogger().addHandler(f_handler)
+logging.getLogger().setLevel(logging.DEBUG)
+
+
 def channels2rgb8bit(image):
     "Convert 4 channel images to 8-bit RGB color images."
     assert(image.dtype == 'uint16')
     image = image.astype('float')
     if(len(image.shape) == 4):
-        image[:,:,:,0:3] = image[:,:,:,[1,2,0]]
+        image[:, :, :, 0:3] = image[:, :, :, [1,2,0]]
         if(image.shape[3] == 4):
-            image = image[:,:,:,0:3] + np.expand_dims(image[:,:,:,3], 3)
+            image = image[:, :, :, 0:3] + np.expand_dims(image[:, :, :, 3], 3)
         
     elif(len(image.shape) == 3):
-        image[:,:,0:3] = image[:,:,[1,2,0]]
+        image[:, :, 0:3] = image[:, :, [1, 2, 0]]
         if(image.shape[2] == 4):
-            image = image[:,:,0:3] + np.expand_dims(image[:,:,3], 2)
+            image = image[:, :, 0:3] + np.expand_dims(image[:, :, 3], 2)
         
     image[image > 65535] = 65535
     image = (image / 256).astype('uint8')
@@ -112,8 +127,6 @@ class TextBox(QWidget):
             config[self.key] = int(self.textbox.text())
 
 
-
-
 class SettingWindow(QMainWindow):
 
     def __init__(self, *args, **kwargs):
@@ -180,6 +193,16 @@ class SettingWindow(QMainWindow):
             self.choosebutton, "Open Directory", '',
             QFileDialog.ShowDirsOnly)
 
+#    def closeEvent(self,event):
+#        result = QMessageBox.question(self,
+#                      "Confirm Exit...",
+#                      "Are you sure you want to exit ?",
+#                      QMessageBox.Yes| QMessageBox.No)
+#        event.ignore()
+#
+#        if result == QMessageBox.Yes:
+#            event.accept()
+
 
 class Legend(QWidget):
     
@@ -226,7 +249,7 @@ class Pos(QWidget):
         r = event.rect()
         p.drawImage(r, self.image)
         # p.drawPixmap(r, QPixmap(self.image))
-        if self.label:
+        if self.label == config['active_id']:
             color = Qt.red
         else:
             color = Qt.black
@@ -236,13 +259,13 @@ class Pos(QWidget):
         p.drawRect(r)
         
     def flag(self):
-        self.label = True
-        print(f"Event {self.id} is selected!")
+        self.label = config['active_id']
+        logger.info(f"Event {self.id} is selected!")
         self.update()
         
     def junk(self):
-        self.label = False
-        print(f"Event {self.id} is discarded!")
+        self.label = 0
+        logger.info(f"Event {self.id} is discarded!")
         self.update()
     
     def get_label(self):
@@ -290,7 +313,7 @@ class MainWindow(QMainWindow):
         self.settingbutton.setFixedSize(QSize(64, 64))
         self.settingbutton.setIconSize(QSize(32, 32))
         self.settingbutton.setIcon(QIcon("./icons/Settings.png"))
-        self.settingbutton.clicked.connect(self.openSettings)
+        self.settingbutton.clicked.connect(self.open_settings)
         
         self.nextbutton = QToolButton()
         self.nextbutton.setText("Next")
@@ -324,6 +347,10 @@ class MainWindow(QMainWindow):
         self.loadbutton.setFixedSize(QSize(64, 64))
         self.loadbutton.pressed.connect(self.load_data)
        
+        self.grid = QGridLayout()
+        self.grid.setSpacing(1)
+        
+        self.open_settings()
         self.load_data()
         
         self.page_number = QLabel()
@@ -349,9 +376,7 @@ class MainWindow(QMainWindow):
         key_box.addWidget(self.savebutton)
         key_box.addWidget(self.loadbutton)
         
-        self.grid = QGridLayout()
-        self.grid.setSpacing(1)
-        
+               
         main_box = QVBoxLayout()
         main_box.addLayout(self.grid)
         main_box.addLayout(key_box)
@@ -360,7 +385,7 @@ class MainWindow(QMainWindow):
         main_widget.setLayout(main_box)
         self.setCentralWidget(main_widget)
         
-        self.init_map()
+        #self.init_map()
         self.show()
     
 
@@ -402,20 +427,20 @@ class MainWindow(QMainWindow):
     def nextPage(self):
         if self.current_page < self.n_pages:
             self.current_page += 1
-            print("Page:", self.current_page)
+            logger.info(f"Page: {self.current_page}")
             self.page_number.setText(f"{self.current_page} / {self.n_pages}")
         else:
-            print("This is the last page!")
+            logger.warning("This is the last page!")
         self.save_labels()
         self.reset_map()
         
     def prevPage(self):
         if self.current_page > 1:
             self.current_page -= 1
-            print("Page:", self.current_page)
+            logger.info(f"Page: {self.current_page}")
             self.page_number.setText(f"{self.current_page} / {self.n_pages}")
         else:
-            print("This is the first page!")
+            logger.warning("This is the first page!")
         self.save_labels()
         self.reset_map()
         
@@ -441,11 +466,17 @@ class MainWindow(QMainWindow):
                 df.label.iat[w.id] = w.get_label()
                 w.update()
                 
-        print("Selection: ", sum(df.label))
+        logger.info(f"Selection: {sum(df.label)}")
 
-    def openSettings(self):
-        self.settingWindow = SettingWindow()
-        self.settingWindow.show()
+    def open_settings(self):
+        settingWindow = SettingWindow()
+        settingWindow.show()
+        loop = QEventLoop()
+        #settingWindow.destroyed.connect(loop.quit)
+        loop.exec()# wait ...
+        sleep(5)
+        loop.quit()
+        print('finished')
 
     def load_data(self):
         global images
@@ -455,16 +486,26 @@ class MainWindow(QMainWindow):
             "HDF files (*.hdf5)")[0]
         self.file_name = os.path.basename(self.file_path)
         self.file_name = self.file_name.replace('.hdf5', '')
+        logger.info(f"loading input data from: {self.file_path}")
 
         # Load images
         with h5py.File(self.file_path, 'r') as file:
-            if (config['image_key'] in file.keys() and 
-                config['data_key'] in file.keys()):
-                images = file[config['image_key']][:]
-                df = pd.read_hdf(self.file_path, config['data_key'])
+            self.input_keys = list(file.keys())
+            logger.debug(f"Input file keys: {self.input_keys}")
+            if config['image_key'] in self.input_keys:
+                images = file.get(config['image_key'])[:]
+                logger.info(f"Loaded images with size : {images.shape}")
             else:
-                sys.exit("HDF5 keys do not include given image and data keys!")
+                logger.error("Images not found in input file!")
+                sys.exit(-1)
 
+        if config['data_key'] in self.input_keys:
+            df = pd.read_hdf(self.file_path, config['data_key'])
+            logger.info(f"Loaded data with size: {df.shape}")
+            logger.debug(f"Types of data columns:\n{df.dtypes}")
+        else:
+            logger.info(f"Data not found in input file!")
+            sys.exit(-1)
 
         images = channels2rgb8bit(images)
         self.n_events,self.imheight,self.imwidth,self.n_channels = images.shape
@@ -478,13 +519,16 @@ class MainWindow(QMainWindow):
         if 'label' not in df.columns:
             df['label'] = np.zeros(self.n_events, dtype='uint8')
 
+        self.init_map()
+
     def save_data(self, export_tsv=True):
         global df
-        df.to_hdf(self.file_path, key=config['data_key'], index=False)
+        df.to_hdf(self.file_path, key=config['data_key'], mode='r+')
+        logger.info("Stored data in HDF file!")
         if export_tsv:
-            df.to_csv(
-                f"{config['output_dir']}/{self.file_name}.txt", index=False,
-                sep='\t')
+            export_path = f"{config['output_dir']}/{self.file_name}.txt"
+            df.to_csv(export_path, index=False, sep='\t')
+            logger.info(f"Exported data to {export_path}")
 
     def closeEvent(self, event):
         with open('config.yml', 'w') as file:
@@ -522,6 +566,7 @@ if __name__ == '__main__':
 # Improve images
 # Change it to dark theme
 # Exit prompt
+# Scale images
 
 
 ## Next Versions:
