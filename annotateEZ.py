@@ -9,10 +9,13 @@ import h5py
 import yaml
 import logging
 
-
 # Input
 images = []
 df = pd.DataFrame()
+
+# Constants:
+config_path = 'config.yml'
+log_path    = 'main.log'
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -21,7 +24,7 @@ console_format = logging.Formatter("[%(levelname)s] %(message)s")
 c_handler.setFormatter(console_format)
 c_handler.setLevel(logging.INFO)
 logging.getLogger().addHandler(c_handler)
-f_handler = logging.FileHandler(filename="./main.log", mode='w')
+f_handler = logging.FileHandler(filename=log_path, mode='w')
 f_format = logging.Formatter("%(asctime)s: [%(levelname)s] %(message)s")
 f_handler.setFormatter(f_format)
 f_handler.setLevel(logging.DEBUG)
@@ -61,7 +64,7 @@ class Label(QWidget):
         self.qlabel = QLabel(str(id))
         self.qlabel.setAlignment(Qt.AlignCenter)
         self.textbox = QLineEdit()
-        self.textbox.setFixedSize(QSize(100, 24))
+        self.textbox.setFixedSize(QSize(128, 24))
         self.textbox.setStyleSheet(f"QLineEdit{{background : {self.color}}}")
         self.textbox.setText(self.name)
         self.textbox.textChanged.connect(self.update_text)
@@ -72,19 +75,15 @@ class Label(QWidget):
         self.checkbox.setChecked(self.active)
         self.update_status()
 
-        self.label_box = QHBoxLayout()
-        self.label_box.setContentsMargins(0, 0, 0, 0)
-        self.label_box.setSpacing(5)
-        self.label_box.addWidget(self.qlabel)
-        self.label_box.addWidget(self.textbox)
-        self.label_box.addWidget(self.checkbox)
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        layout.addWidget(self.qlabel)
+        layout.addWidget(self.textbox)
+        layout.addWidget(self.checkbox)
 
-        self.label_widget = QWidget()
-        self.label_widget.setLayout(self.label_box)
+        self.setLayout(layout)
         
-    def getLabelWidget(self):
-        return(self.label_widget)
-
     def update_status(self):
         self.textbox.setEnabled(self.checkbox.isChecked())
         if self.checkbox.isChecked():
@@ -110,52 +109,47 @@ class TextBox(QWidget):
         self.textbox.setText(str(default))
         self.textbox.textChanged.connect(self.update_text)
 
-        self.box = QHBoxLayout()
-        self.box.addWidget(self.title)
-        self.box.addWidget(self.textbox)
+        layout = QHBoxLayout()
+        layout.addWidget(self.title)
+        layout.addWidget(self.textbox)
 
-        self.widget = QWidget()
-        self.widget.setLayout(self.box)
-
-    def get_widget(self):
-        return(self.widget)
+        self.setLayout(layout)
 
     def update_text(self):
-        if isinstance(config[self.key], str):
-            config[self.key] = self.textbox.text()
-        elif isinstance(config[self.key], int):
-            config[self.key] = int(self.textbox.text())
+        if self.textbox.text() != '':
+            if isinstance(config[self.key], str):
+                config[self.key] = self.textbox.text()
+            elif isinstance(config[self.key], int):
+                config[self.key] = int(self.textbox.text())
 
 
-class SettingWindow(QMainWindow):
+class SettingWindow(QWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        print(config['x_size'])
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(5)
+        
         self.dialog = QFileDialog()
         self.dialog.setFileMode(QFileDialog.Directory)
         
-        # box 1: labels
-        setting_box_1 = QVBoxLayout()
-        setting_box_1.setContentsMargins(10, 10, 10, 10)
-        setting_box_1.setSpacing(5)
-        
-        box_1_title = QLabel("labels")
-        box_1_title.setAlignment(Qt.AlignCenter)
-        setting_box_1.addWidget(box_1_title)
+        self.title_1 = QLabel("labels")
+        self.title_1.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.title_1)
         self.labels = [Label(id) for id in range(len(config['labels']))]
         for i in range(len(config['labels'])):
-            setting_box_1.addWidget(self.labels[i].getLabelWidget())
-
-        setting_widget_1 = QWidget()
-        setting_widget_1.setLayout(setting_box_1)
+            layout.addWidget(self.labels[i])
         
-        # box 2: configuration
-        box_2_title = QLabel("configuration")
-        box_2_title.setAlignment(Qt.AlignCenter)
+        self.title_2 = QLabel("configuration")
+        self.title_2.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.title_2)
+        
         self.choosebutton = QPushButton("select output directory")
-        self.choosebutton.setFixedHeight(32)
         self.choosebutton.pressed.connect(self.choose_output_dir)
+        self.choosebutton.setFixedHeight(32)
+        layout.addWidget(self.choosebutton)
         
         self.image_key = TextBox(
             'image_key', 'image key: ', config['image_key'])
@@ -168,63 +162,18 @@ class SettingWindow(QMainWindow):
         self.y_size = TextBox(
             'y_size', 'vertical tile count', config['y_size'])
 
-        setting_box_2 = QVBoxLayout()
-        setting_box_2.addWidget(box_2_title)
-        setting_box_2.addWidget(self.image_key.get_widget())
-        setting_box_2.addWidget(self.data_key.get_widget())
-        setting_box_2.addWidget(self.tile_size.get_widget())
-        setting_box_2.addWidget(self.x_size.get_widget())
-        setting_box_2.addWidget(self.y_size.get_widget())
-        setting_box_2.addWidget(self.choosebutton)
+        layout.addWidget(self.image_key)
+        layout.addWidget(self.data_key)
+        layout.addWidget(self.tile_size)
+        layout.addWidget(self.x_size)
+        layout.addWidget(self.y_size)
         
-        setting_widget_2 = QWidget()
-        setting_widget_2.setLayout(setting_box_2)
-        
-        setting_box = QHBoxLayout()
-        setting_box.addWidget(setting_widget_1)
-        setting_box.addWidget(setting_widget_2)
-
-        setting_widget = QWidget()
-        setting_widget.setLayout(setting_box)
-        self.setCentralWidget(setting_widget)
+        self.setLayout(layout)
 
     def choose_output_dir(self):
         config['output_dir'] = self.dialog.getExistingDirectory(
             self.choosebutton, "Open Directory", '',
             QFileDialog.ShowDirsOnly)
-
-#    def closeEvent(self,event):
-#        result = QMessageBox.question(self,
-#                      "Confirm Exit...",
-#                      "Are you sure you want to exit ?",
-#                      QMessageBox.Yes| QMessageBox.No)
-#        event.ignore()
-#
-#        if result == QMessageBox.Yes:
-#            event.accept()
-
-
-class Legend(QWidget):
-    
-    def __init__(self):
-        super().__init__()
-        layout = QGridLayout()
-        self.setLayout(layout)
-        
-        counter = 0
-        for i, label in enumerate(config['labels']):
-            if label['active']:
-                radiobutton = QRadioButton(label['name'])
-                radiobutton.id = i
-                radiobutton.name = label['name']
-                radiobutton.toggled.connect(self.onClicked)
-                layout.addWidget(radiobutton, counter % 2, counter // 2)
-                counter += 1
-
-    def onClicked(self):
-        radioButton = self.sender()
-        if radioButton.isChecked():
-            print(radioButton.id, radioButton.name)
 
 
 class Pos(QWidget):
@@ -249,7 +198,7 @@ class Pos(QWidget):
         r = event.rect()
         p.drawImage(r, self.image)
         # p.drawPixmap(r, QPixmap(self.image))
-        if self.label == config['active_id']:
+        if self.label == config['active_label']:
             color = Qt.red
         else:
             color = Qt.black
@@ -259,7 +208,7 @@ class Pos(QWidget):
         p.drawRect(r)
         
     def flag(self):
-        self.label = config['active_id']
+        self.label = config['active_label']
         logger.info(f"Event {self.id} is selected!")
         self.update()
         
@@ -282,12 +231,10 @@ class MainWindow(QMainWindow):
     
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-        self.x_size = config['x_size']
-        self.y_size = config['y_size']
-        self.current_page = 1
+        self.current_page = 0
         self.n_pages = 0
-        self.active_label = 1
-        
+        self.open_settings()
+
         self.dialog = QFileDialog()
         self.dialog.setFileMode(QFileDialog.AnyFile)
         
@@ -307,18 +254,10 @@ class MainWindow(QMainWindow):
         self.selectnonebutton.setIcon(QIcon("./icons/uncheck_all.png"))
         self.selectnonebutton.pressed.connect(self.selectNone)
         
-        self.settingbutton = QToolButton()
-        self.settingbutton.setText("Setting")
-        self.settingbutton.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        self.settingbutton.setFixedSize(QSize(64, 64))
-        self.settingbutton.setIconSize(QSize(32, 32))
-        self.settingbutton.setIcon(QIcon("./icons/Settings.png"))
-        self.settingbutton.clicked.connect(self.open_settings)
-        
         self.nextbutton = QToolButton()
         self.nextbutton.setText("Next")
         self.nextbutton.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        self.nextbutton.setFixedHeight(64)
+        self.nextbutton.setFixedSize(QSize(64, 64))
         self.nextbutton.setIconSize(QSize(32, 32))
         self.nextbutton.setIcon(QIcon("./icons/Right.png"))
         self.nextbutton.pressed.connect(self.nextPage)
@@ -326,7 +265,7 @@ class MainWindow(QMainWindow):
         self.prevbutton = QToolButton()
         self.prevbutton.setText("Prev")
         self.prevbutton.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        self.prevbutton.setFixedHeight(64)
+        self.prevbutton.setFixedSize(QSize(64, 64))
         self.prevbutton.setIconSize(QSize(32, 32))
         self.prevbutton.setIcon(QIcon("./icons/Left.png"))
         self.prevbutton.pressed.connect(self.prevPage)
@@ -350,32 +289,21 @@ class MainWindow(QMainWindow):
         self.grid = QGridLayout()
         self.grid.setSpacing(1)
         
-        self.open_settings()
-        self.load_data()
         
         self.page_number = QLabel()
         self.page_number.setFixedSize(QSize(64, 64))
         self.page_number.setAlignment(Qt.AlignCenter)
         self.page_number.setText(f"{self.current_page} / {self.n_pages}")
 
-        #self.datacombo = QComboBox()
-        #self.datacombo.setFixedSize(QSize(128, 30))
-        #self.datacombo.addItems([str(i) for i in range(10)])
-        #self.datacombo.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-        #self.load_box = QVBoxLayout()
-        #self.load_box.addWidget(self.loadbutton)
-        #self.load_box.addWidget(self.datacombo)
         key_box = QHBoxLayout()
         key_box.addWidget(self.selectallbutton)
         key_box.addWidget(self.selectnonebutton)
-        key_box.addWidget(self.settingbutton)
+        #key_box.addWidget(self.settingbutton)
         key_box.addWidget(self.prevbutton)
         key_box.addWidget(self.page_number)
         key_box.addWidget(self.nextbutton)
         key_box.addWidget(self.savebutton)
         key_box.addWidget(self.loadbutton)
-        
                
         main_box = QVBoxLayout()
         main_box.addLayout(self.grid)
@@ -385,30 +313,33 @@ class MainWindow(QMainWindow):
         main_widget.setLayout(main_box)
         self.setCentralWidget(main_widget)
         
-        #self.init_map()
+        self.load_data(init_map=True)
         self.show()
     
 
     def calc_index(self, x, y):
-        return((self.current_page - 1) * config['n_collage'] + x + \
-               config['x_size'] * y)
+        return((self.current_page - 1) * self.x_size * self.y_size \
+               + x + self.x_size * y)
     
     def get_image(self, id, mode):
         global images
         if mode == 'rgb':
             return(
                 QImage(
-                    images[id].data, self.imwidth, self.imheight,
-                    self.imwidth * 3, QImage.Format_RGB888)
-                )
+                    images[id].data, self.im_w, self.im_h,
+                    self.im_w * 3, QImage.Format_RGB888)
+            )
 
     def get_label(self, id):
         global df
-        return(df.label.iat[id])
+        if id >= self.n_events:
+            return None
+        else:
+            return df.label.iat[id]
 
     def init_map(self):
-        for y in range(0, self.y_size):
-            for x in range(0, self.x_size):
+        for x in range(0, self.x_size):
+            for y in range(0, self.y_size):
                 id = self.calc_index(x, y)
                 qImage = self.get_image(id, mode='rgb')
                 label = self.get_label(id)
@@ -423,12 +354,15 @@ class MainWindow(QMainWindow):
                 label = self.get_label(id)
                 w = self.grid.itemAtPosition(y, x).widget()
                 w.reset(id, qImage, label)
-                
+    
+    def update_page_number(self):
+        self.page_number.setText(f"{self.current_page} / {self.n_pages}")
+
     def nextPage(self):
         if self.current_page < self.n_pages:
             self.current_page += 1
+            self.update_page_number()
             logger.info(f"Page: {self.current_page}")
-            self.page_number.setText(f"{self.current_page} / {self.n_pages}")
         else:
             logger.warning("This is the last page!")
         self.save_labels()
@@ -437,8 +371,8 @@ class MainWindow(QMainWindow):
     def prevPage(self):
         if self.current_page > 1:
             self.current_page -= 1
+            self.update_page_number()
             logger.info(f"Page: {self.current_page}")
-            self.page_number.setText(f"{self.current_page} / {self.n_pages}")
         else:
             logger.warning("This is the first page!")
         self.save_labels()
@@ -463,88 +397,136 @@ class MainWindow(QMainWindow):
         for x in range(0, self.x_size):
             for y in range(0, self.y_size):
                 w = self.grid.itemAtPosition(y, x).widget()
-                df.label.iat[w.id] = w.get_label()
-                w.update()
+                if w.id < self.n_events:
+                    df.label.iat[w.id] = w.get_label()
                 
         logger.info(f"Selection: {sum(df.label)}")
 
     def open_settings(self):
-        settingWindow = SettingWindow()
-        settingWindow.show()
-        loop = QEventLoop()
-        #settingWindow.destroyed.connect(loop.quit)
-        loop.exec()# wait ...
-        sleep(5)
-        loop.quit()
-        print('finished')
+        main_dialog = QDialog()
+        layout = QVBoxLayout()
+        setting_window = SettingWindow()
+        layout.addWidget(setting_window)
+        main_dialog.setLayout(layout)
+        main_dialog.setWindowTitle('Settings')
+        main_dialog.setWindowModality(Qt.ApplicationModal)
+        main_dialog.exec_()
+        save_config()
+        self.deploy_config()
 
-    def load_data(self):
+    def deploy_config(self):
+        self.x_size = config['x_size']
+        self.y_size = config['y_size']
+        self.active_label = config['active_label']
+
+    def load_data(self, init_map=False):
         global images
         global df
-        self.file_path = self.dialog.getOpenFileName(
-            self.loadbutton, "Open File", '',
-            "HDF files (*.hdf5)")[0]
-        self.file_name = os.path.basename(self.file_path)
-        self.file_name = self.file_name.replace('.hdf5', '')
-        logger.info(f"loading input data from: {self.file_path}")
 
-        # Load images
-        with h5py.File(self.file_path, 'r') as file:
-            self.input_keys = list(file.keys())
-            logger.debug(f"Input file keys: {self.input_keys}")
-            if config['image_key'] in self.input_keys:
-                images = file.get(config['image_key'])[:]
-                logger.info(f"Loaded images with size : {images.shape}")
+        self.f_path, _ = self.dialog.getOpenFileName(
+            self.loadbutton, "Open File", '', "HDF files (*.hdf5)")
+
+        if not self.f_path:
+            return
+        try:
+            self.f_name = os.path.basename(self.f_path).replace('.hdf5', '')
+            logger.info(f"loading input data from: {self.f_path}")
+
+            # Load images
+            with h5py.File(self.f_path, 'r') as file:
+                self.input_keys = list(file.keys())
+                logger.debug(f"Input file keys: {self.input_keys}")
+                if config['image_key'] in self.input_keys:
+                    images = file.get(config['image_key'])[:]
+                    logger.info(f"Loaded images with size : {images.shape}")
+                else:
+                    logger.error("Images not found in input file!")
+                    sys.exit(-1)
+
+            if config['data_key'] in self.input_keys:
+                df = pd.read_hdf(self.f_path, config['data_key'])
+                logger.info(f"Loaded data with size: {df.shape}")
+                logger.debug(f"Types of data columns:\n{df.dtypes}")
             else:
-                logger.error("Images not found in input file!")
+                logger.info(f"Data not found in input file!")
                 sys.exit(-1)
 
-        if config['data_key'] in self.input_keys:
-            df = pd.read_hdf(self.file_path, config['data_key'])
-            logger.info(f"Loaded data with size: {df.shape}")
-            logger.debug(f"Types of data columns:\n{df.dtypes}")
-        else:
-            logger.info(f"Data not found in input file!")
-            sys.exit(-1)
+        except Exception as e:
+            QMessageBox.warning(
+                self, 'Error', f"The following error occured:\n{type(e)}: {e}")
+
+        self.im_shape   = images.shape
+        self.n_events   = self.im_shape[0]
+        self.im_h       = self.im_shape[1]
+        self.im_w       = self.im_shape[2]
+        self.n_channels = self.im_shape[3]
+        self.n_pages    = 1 + self.n_events // (self.x_size * self.y_size)
+        self.n_tiles    = self.n_pages * (self.x_size * self.y_size)
+
+        if self.n_tiles > self.n_events:
+            images = np.concatenate((images,
+                np.zeros(
+                    (self.n_tiles - self.n_events, self.im_h, self.im_w,
+                    self.n_channels),
+                    dtype=images.dtype)),
+                axis=0
+            )
 
         images = channels2rgb8bit(images)
-        self.n_events,self.imheight,self.imwidth,self.n_channels = images.shape
-        
-        self.n_pages = self.n_events // config['n_collage']
-
-        print(
-            'shape:', self.n_events, self.imheight, self.imwidth,
-            self.n_channels, self.n_pages)
 
         if 'label' not in df.columns:
             df['label'] = np.zeros(self.n_events, dtype='uint8')
 
-        self.init_map()
+        self.current_page = 1
+        self.update_page_number()
+        if init_map:
+            self.init_map()
+        else:
+            self.reset_map()
 
-    def save_data(self, export_tsv=True):
+    def save_data(self, export_txt=True):
         global df
-        df.to_hdf(self.file_path, key=config['data_key'], mode='r+')
+        self.save_labels()
+        # saving annotations to hdf5 file
+        df.to_hdf(self.f_path, key=config['data_key'], mode='r+')
+        # saving label keymap
+        with h5py.File(self.f_path, 'r+') as file:
+            if 'labels' in file.keys():
+                del file['labels']
+            file.create_dataset(
+                'labels', data=[item['name'] for item in config['labels']])
         logger.info("Stored data in HDF file!")
-        if export_tsv:
-            export_path = f"{config['output_dir']}/{self.file_name}.txt"
+        # exporting data to a txt file if requested
+        if export_txt:
+            export_path = f"{config['output_dir']}/{self.f_name}.txt"
             df.to_csv(export_path, index=False, sep='\t')
             logger.info(f"Exported data to {export_path}")
 
-    def closeEvent(self, event):
-        with open('config.yml', 'w') as file:
-            yaml.dump(config, file, default_flow_style=False)
+    def closeEvent(self,event):
+        result = QMessageBox.question(self,
+                      "Confirm Exit...",
+                      "Are you sure you want to exit?",
+                      QMessageBox.Yes| QMessageBox.No)
+        event.ignore()
 
+        if result == QMessageBox.Yes:
+            event.accept()
 
 # Functions
 def load_config():
     global config
-    if not os.path.exists('config.yml'):
+    if not os.path.exists(config_path):
         sys.exit("config file does not exist!")
     else:
-        with open('config.yml', 'r') as stream:
+        with open(config_path, 'r') as stream:
             config = yaml.safe_load(stream)
-        config['n_collage'] = config['x_size'] * config['y_size']
         config['tile_size'] = 2 * (config['tile_size'] // 2) + 1
+
+def save_config():
+    global config
+    with open(config_path, 'w') as file:
+        yaml.dump(config, file, default_flow_style=False)
+    
 
 
 def main():
@@ -559,15 +541,71 @@ if __name__ == '__main__':
     main()
     
 # Add input key-ID window
-# Check if features data set exists
-# Check if annotation_column exists
-# Add multiple selection by dragging mouse click
-# Add option 3-color or gray-scale
-# Improve images
-# Change it to dark theme
-# Exit prompt
-# Scale images
-
 
 ## Next Versions:
+
+# Change it to dark theme
+# Scale images
+# Improve images
+# Add option 3-color or gray-scale
+# Add multiple selection by dragging mouse click
 # Filter using size
+
+
+##### To be used later
+        #self.datacombo = QComboBox()
+        #self.datacombo.setFixedSize(QSize(128, 30))
+        #self.datacombo.addItems([str(i) for i in range(10)])
+        #self.datacombo.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        #self.load_box = QVBoxLayout()
+        #self.load_box.addWidget(self.loadbutton)
+        #self.load_box.addWidget(self.datacombo)
+
+
+
+
+##### To be used later
+#    def closeEvent(self,event):
+#        result = QMessageBox.question(self,
+#                      "Confirm Exit...",
+#                      "Are you sure you want to exit ?",
+#                      QMessageBox.Yes| QMessageBox.No)
+#        event.ignore()
+#
+#        if result == QMessageBox.Yes:
+#            event.accept()
+
+##### To be used later
+#class Legend(QWidget):
+#    
+#    def __init__(self):
+#        super().__init__()
+#        layout = QGridLayout()
+#        self.setLayout(layout)
+#        
+#        counter = 0
+#        for i, label in enumerate(config['labels']):
+#            if label['active']:
+#                radiobutton = QRadioButton(label['name'])
+#                radiobutton.id = i
+#                radiobutton.name = label['name']
+#                radiobutton.toggled.connect(self.onClicked)
+#                layout.addWidget(radiobutton, counter % 2, counter // 2)
+#                counter += 1
+#
+#    def onClicked(self):
+#        radioButton = self.sender()
+#        if radioButton.isChecked():
+#            print(radioButton.id, radioButton.name)
+
+
+##### For future use
+        #self.settingbutton = QToolButton()
+        #self.settingbutton.setText("Setting")
+        #self.settingbutton.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        #self.settingbutton.setFixedSize(QSize(64, 64))
+        #self.settingbutton.setIconSize(QSize(32, 32))
+        #self.settingbutton.setIcon(QIcon("./icons/Settings.png"))
+        #self.settingbutton.clicked.connect(self.open_settings)
+        
