@@ -1,14 +1,39 @@
 active_label: 1
+channels:
+- active: false
+  name: DAPI
+- active: false
+  name: TRITC
+- active: false
+  name: CY5
+- active: false
+  name: FITC
 data_key: features
 image_key: images
 labels:
-- active: true
-  color: white
+- active: false
+  color: black
   name: class 0
 - active: true
   color: red
-  name: class 1
-output_dir: /home/amin/Dropbox/Education/PhD/coding/Python/annotateEZ/output
-tile_size: 45
-x_size: 30
-y_size: 18
+  name: PIC
+- active: true
+  color: yellow
+  name: others
+- active: true
+  color: green
+  name: WBC
+- active: true
+  color: blue
+  name: PIC-LEV
+- active: true
+  color: magenta
+  name: PIC-CTC
+- active: true
+  color: cyan
+  name: PIC-WBC
+mask_key: masks
+output_dir: /home/amin/Dropbox/Education/PhD/CSI/Projects/P18_LEV_characterization/data/E06_IMC/IMC_queue/data
+tile_size: 85
+x_size: 15
+y_size: 15

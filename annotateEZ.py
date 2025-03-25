@@ -8,7 +8,6 @@ import os
 import h5py
 import yaml
 import logging
-
 # Input
 images = []
 df = pd.DataFrame()
@@ -38,20 +37,49 @@ def channels2rgb8bit(image):
     image = image.astype('float')
     if(len(image.shape) == 4):
         image[:, :, :, 0:3] = image[:, :, :, [1,2,0]]
-        if(image.shape[3] == 4):
+        if(image.shape[3] > 3):
             image = image[:, :, :, 0:3] + np.expand_dims(image[:, :, :, 3], 3)
         
     elif(len(image.shape) == 3):
         image[:, :, 0:3] = image[:, :, [1, 2, 0]]
-        if(image.shape[2] == 4):
+        if(image.shape[2] > 3):
             image = image[:, :, 0:3] + np.expand_dims(image[:, :, 3], 2)
         
     image[image > 65535] = 65535
-    image = (image / 256).astype('uint8')
+    image = (image // 256).astype('uint8')
     return(image)
 
 
 # Classes
+class Legend(QWidget):
+    
+    def __init__(self):
+        super().__init__()
+        layout = QGridLayout()
+        
+        counter = 0
+        for i, label in enumerate(config['labels']):
+            if label['active']:
+                radiobutton = QRadioButton(label['name'])
+                radiobutton.setFixedSize(QSize(64, 30))
+                radiobutton.id = i
+                radiobutton.name = label['name']
+                if i == config['active_label']:
+                    radiobutton.setChecked(True)
+                radiobutton.toggled.connect(self.onClicked)
+                layout.addWidget(radiobutton, counter % 2, counter // 2)
+                counter += 1
+        
+        self.setLayout(layout)
+
+
+    def onClicked(self):
+        radioButton = self.sender()
+        if radioButton.isChecked():
+            config['active_label'] = radioButton.id
+            print(f"{radioButton.name} toggled!")
+
+
 class Label(QWidget):
 
     def __init__(self, id):
@@ -198,12 +226,9 @@ class Pos(QWidget):
         r = event.rect()
         p.drawImage(r, self.image)
         # p.drawPixmap(r, QPixmap(self.image))
-        if self.label == config['active_label']:
-            color = Qt.red
-        else:
-            color = Qt.black
+        color = self.get_color()
         pen = QPen(color)
-        pen.setWidth(2)
+        pen.setWidth(4)
         p.setPen(pen)
         p.drawRect(r)
         
@@ -216,10 +241,22 @@ class Pos(QWidget):
         self.label = 0
         logger.info(f"Event {self.id} is discarded!")
         self.update()
-    
-    def get_label(self):
-        return(self.label)
-        
+
+    def get_color(self):
+        color = config['labels'][self.label]['color']
+        if color == 'black':
+            return Qt.black
+        elif color == 'red':
+            return Qt.red
+        elif color == 'yellow':
+            return Qt.yellow
+        elif color == 'green':
+            return Qt.green
+        elif color == 'blue':
+            return Qt.blue
+        else:
+            quit("Invalid color selection!")
+
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.RightButton:
             self.junk()
@@ -231,8 +268,10 @@ class MainWindow(QMainWindow):
     
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+        #self.setStyleSheet("background-color: black;")
         self.current_page = 0
         self.n_pages = 0
+        self.f_name = 'Empty'
         self.open_settings()
 
         self.dialog = QFileDialog()
@@ -287,15 +326,17 @@ class MainWindow(QMainWindow):
         self.loadbutton.pressed.connect(self.load_data)
        
         self.grid = QGridLayout()
-        self.grid.setSpacing(1)
-        
+        self.grid.setSpacing(0)
         
         self.page_number = QLabel()
         self.page_number.setFixedSize(QSize(64, 64))
         self.page_number.setAlignment(Qt.AlignCenter)
-        self.page_number.setText(f"{self.current_page} / {self.n_pages}")
+        self.page_number.setText(f"{self.f_name}\n\n"
+                                 f"{self.current_page} / {self.n_pages}")
+        self.legend = Legend()
 
         key_box = QHBoxLayout()
+        key_box.addWidget(self.legend)
         key_box.addWidget(self.selectallbutton)
         key_box.addWidget(self.selectnonebutton)
         #key_box.addWidget(self.settingbutton)
@@ -333,7 +374,7 @@ class MainWindow(QMainWindow):
     def get_label(self, id):
         global df
         if id >= self.n_events:
-            return None
+            return 0
         else:
             return df.label.iat[id]
 
@@ -356,7 +397,8 @@ class MainWindow(QMainWindow):
                 w.reset(id, qImage, label)
     
     def update_page_number(self):
-        self.page_number.setText(f"{self.current_page} / {self.n_pages}")
+        self.page_number.setText(f"{self.f_name}\n\n"
+                                 f"{self.current_page} / {self.n_pages}")
 
     def nextPage(self):
         if self.current_page < self.n_pages:
@@ -398,7 +440,7 @@ class MainWindow(QMainWindow):
             for y in range(0, self.y_size):
                 w = self.grid.itemAtPosition(y, x).widget()
                 if w.id < self.n_events:
-                    df.label.iat[w.id] = w.get_label()
+                    df.label.iat[w.id] = w.label # w.get_label()
                 
         logger.info(f"Selection: {sum(df.label)}")
 
@@ -417,7 +459,6 @@ class MainWindow(QMainWindow):
     def deploy_config(self):
         self.x_size = config['x_size']
         self.y_size = config['y_size']
-        self.active_label = config['active_label']
 
     def load_data(self, init_map=False):
         global images
@@ -550,6 +591,7 @@ if __name__ == '__main__':
 # Add option 3-color or gray-scale
 # Add multiple selection by dragging mouse click
 # Filter using size
+# Show event data while hovering cursor over the item and waiting
 
 
 ##### To be used later
@@ -562,9 +604,6 @@ if __name__ == '__main__':
         #self.load_box.addWidget(self.loadbutton)
         #self.load_box.addWidget(self.datacombo)
 
-
-
-
 ##### To be used later
 #    def closeEvent(self,event):
 #        result = QMessageBox.question(self,
@@ -575,30 +614,6 @@ if __name__ == '__main__':
 #
 #        if result == QMessageBox.Yes:
 #            event.accept()
-
-##### To be used later
-#class Legend(QWidget):
-#    
-#    def __init__(self):
-#        super().__init__()
-#        layout = QGridLayout()
-#        self.setLayout(layout)
-#        
-#        counter = 0
-#        for i, label in enumerate(config['labels']):
-#            if label['active']:
-#                radiobutton = QRadioButton(label['name'])
-#                radiobutton.id = i
-#                radiobutton.name = label['name']
-#                radiobutton.toggled.connect(self.onClicked)
-#                layout.addWidget(radiobutton, counter % 2, counter // 2)
-#                counter += 1
-#
-#    def onClicked(self):
-#        radioButton = self.sender()
-#        if radioButton.isChecked():
-#            print(radioButton.id, radioButton.name)
-
 
 ##### For future use
         #self.settingbutton = QToolButton()
