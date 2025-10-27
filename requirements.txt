@@ -1,0 +1,7 @@
+# Pin compatible versions known to work together
+PyQt5==5.15.10
+pandas==2.0.3
+numpy==1.26.4
+h5py==3.10.0
+PyYAML==6.0.1
+tables==3.9.2

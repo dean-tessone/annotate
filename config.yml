@@ -9,31 +9,25 @@ channels:
 - active: false
   name: FITC
 data_key: features
+image_cache_size: 100
 image_key: images
 labels:
 - active: false
-  color: black
   name: class 0
 - active: true
-  color: red
-  name: PIC
+  name: CTC
 - active: true
-  color: yellow
-  name: others
+  name: CAF
 - active: true
-  color: green
-  name: WBC
+  name: CEC
 - active: true
-  color: blue
-  name: PIC-LEV
+  name: Mega
 - active: true
-  color: magenta
-  name: PIC-CTC
-- active: true
-  color: cyan
+  name: Junk
+- active: false
   name: PIC-WBC
 mask_key: masks
-output_dir: /home/amin/Dropbox/Education/PhD/CSI/Projects/P18_LEV_characterization/data/E06_IMC/IMC_queue/data
-tile_size: 85
+output_dir: /home/dean/Desktop/annotateEZ/New Folder
+tile_size: 75
 x_size: 15
-y_size: 15
+y_size: 7
